@@ -21,18 +21,11 @@ public:
     using runtime_error::runtime_error;
 };
 
-class Node {
-public:
-    using Value = std::variant<std::nullptr_t, std::string, int, double, bool, Array, Dict>;
+using NodeData = std::variant<std::nullptr_t, Array, Dict, bool, int, double, std::string>;
 
-    template<typename ValueType>
-    Node(ValueType value)
-        : value_(value)
-    {}
-    
-    Node()
-        : value_(nullptr)
-    {}
+class Node : private NodeData {
+public:
+    using NodeData::variant;
 
     bool IsInt() const;
     bool IsDouble() const;
@@ -50,13 +43,16 @@ public:
     const Array& AsArray() const;
     const Dict& AsMap() const;
 
-    const Value& GetValue() const;
+    const NodeData& GetValue() const;
 
-    bool operator==(const Node& rhs) const;
-    bool operator!=(const Node& rhs) const;
+    friend bool operator==(const Node& lhs, const Node& rhs) {
+        return static_cast<NodeData>(lhs) == static_cast<NodeData>(rhs);
+    }
+    friend bool operator!=(const Node& lhs, const Node& rhs) {
+        return !(lhs == rhs);
+    }
 
-private:
-    Value value_;
+
 };
 
 class Document {

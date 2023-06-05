@@ -6,7 +6,7 @@ namespace renderer {
         return std::abs(value) < EPSILON;
     }
 
-    std::vector<svg::Polyline> MapRenderer::GetRouteLines(const std::map<std::string_view, const transport::Bus*>& buses, const SphereProjector& sprojector) const {
+    std::vector<svg::Polyline> MapRenderer::RendererRouteLines(const std::map<std::string_view, const transport::Bus*>& buses, const SphereProjector& sprojector) const {
         std::vector<svg::Polyline> result;
         size_t color_num = 0;
         for (const auto& bus_pair : buses) {
@@ -43,7 +43,7 @@ namespace renderer {
         return result;
     }
 
-    std::vector<svg::Text> MapRenderer::GetBusLabel(const std::map<std::string_view, const transport::Bus*>& buses, const SphereProjector& sprojector) const {
+    std::vector<svg::Text> MapRenderer::RendererBusLabel(const std::map<std::string_view, const transport::Bus*>& buses, const SphereProjector& sprojector) const {
         std::vector<svg::Text> result;
         size_t color_num = 0;
 
@@ -92,7 +92,7 @@ namespace renderer {
         return result;
     }
 
-    std::vector<svg::Circle> MapRenderer::GetStopsSymbols(const std::map<std::string_view, const transport::Stop*>& stops, const SphereProjector& sprojector) const {
+    std::vector<svg::Circle> MapRenderer::RendererStopsSymbols(const std::map<std::string_view, const transport::Stop*>& stops, const SphereProjector& sprojector) const {
         std::vector<svg::Circle> result;
         for (const auto& stop_pair : stops) {
             const transport::Stop* stop = stop_pair.second;
@@ -108,7 +108,7 @@ namespace renderer {
         return result;
     }
 
-    std::vector<svg::Text> MapRenderer::GetStopsLabels(const std::map<std::string_view, const transport::Stop*>& stops, const SphereProjector& sprojector) const {
+    std::vector<svg::Text> MapRenderer::RendererStopsLabels(const std::map<std::string_view, const transport::Stop*>& stops, const SphereProjector& sprojector) const {
         std::vector<svg::Text> result;
         svg::Text text;
         svg::Text underlayer;
@@ -138,7 +138,7 @@ namespace renderer {
         return result;
     }
 
-    svg::Document MapRenderer::GetSVG(const std::map<std::string_view, const transport::Bus*>& buses) const {
+    svg::Document MapRenderer::RendererSVG(const std::map<std::string_view, const transport::Bus*>& buses) const {
         svg::Document result;
         std::vector<geo::Coordinates> route_stops_coord;
         std::map<std::string_view, const transport::Stop*> all_stops;
@@ -153,22 +153,22 @@ namespace renderer {
         }
         SphereProjector sprojector(route_stops_coord.begin(), route_stops_coord.end(), render_settings_.width, render_settings_.height, render_settings_.padding);
 
-        const auto route_lines = GetRouteLines(buses, sprojector);
+        const auto route_lines = RendererRouteLines(buses, sprojector);
         for (const auto& line : route_lines) {
             result.Add(line);
         }
 
-        const auto bus_labels = GetBusLabel(buses, sprojector);
+        const auto bus_labels = RendererBusLabel(buses, sprojector);
         for (const auto& text : bus_labels) {
             result.Add(text);
         }
 
-        const auto stop_symbols = GetStopsSymbols(all_stops, sprojector);
+        const auto stop_symbols = RendererStopsSymbols(all_stops, sprojector);
         for (const auto& circle : stop_symbols) {
             result.Add(circle);
         }
 
-        const auto stop_labels = GetStopsLabels(all_stops, sprojector);
+        const auto stop_labels = RendererStopsLabels(all_stops, sprojector);
         for (const auto& text : stop_labels) {
             result.Add(text);
         }

@@ -5,15 +5,29 @@ void RequestHandler::ProcessRequests(const json::Node& stat_requests) const {
     for (auto& request : stat_requests.AsArray()) {
         const auto& request_map = request.AsMap();
         const auto& type = request_map.at("type").AsString();
-        if (type == "Stop") result.push_back(PrintStop(request_map).AsMap());
-        if (type == "Bus") result.push_back(PrintRoute(request_map).AsMap());
-        if (type == "Map") result.push_back(PrintMap(request_map).AsMap());
+        if (type == "Bus")
+        {
+            RoutePrinter rp{ catalog_ };
+            result.push_back(rp.PrintRoute(request_map).AsMap());
+        }
+        
+        if (type == "Stop")
+        {
+            StopPrinter sp{ catalog_ };
+            result.push_back(sp.PrintStop(request_map).AsMap());
+        }
+        
+        if (type == "Map") 
+        { 
+            MapPrinter mp{ catalog_, renderer_};
+            result.push_back(mp.PrintMap(request_map).AsMap()); 
+        }
     }
 
     json::Print(json::Document{ result }, std::cout);
 }
 
-const json::Node RequestHandler::PrintRoute(const json::Dict& request_map) const {
+const json::Node RoutePrinter::PrintRoute(const json::Dict& request_map) const {
     json::Dict result;
     const std::string& route_number = request_map.at("name").AsString();
     result["request_id"] = request_map.at("id").AsInt();
@@ -21,25 +35,28 @@ const json::Node RequestHandler::PrintRoute(const json::Dict& request_map) const
         result["error_message"] = json::Node{ static_cast<std::string>("not found") };
     }
     else {
-        result["curvature"] = GetBusStat(route_number)->curvature;
-        result["route_length"] = GetBusStat(route_number)->route_length;
-        result["stop_count"] = static_cast<int>(GetBusStat(route_number)->stops_count);
-        result["unique_stop_count"] = static_cast<int>(GetBusStat(route_number)->unique_stops_count);
+        BusStatistics bs{catalog_};
+        result["curvature"] = bs.GetBusStat(route_number)->curvature;
+        result["route_length"] = bs.GetBusStat(route_number)->route_length;
+        result["stop_count"] = static_cast<int>(bs.GetBusStat(route_number)->stops_count);
+        result["unique_stop_count"] = static_cast<int>(bs.GetBusStat(route_number)->unique_stops_count);
     }
 
     return json::Node{ result };
 }
 
-const json::Node RequestHandler::PrintStop(const json::Dict& request_map) const {
+const json::Node StopPrinter::PrintStop(const json::Dict& request_map) const {
     json::Dict result;
     const std::string& stop_name = request_map.at("name").AsString();
     result["request_id"] = request_map.at("id").AsInt();
+    
     if (!catalog_.FindStop(stop_name)) {
         result["error_message"] = json::Node{ static_cast<std::string>("not found") };
     }
     else {
+        BusStatistics bs{catalog_};
         json::Array buses;
-        for (auto& bus : GetBusesByStop(stop_name)) {
+        for (auto& bus : bs.GetBusesByStop(stop_name)) {
             buses.push_back(bus);
         }
         result["buses"] = buses;
@@ -48,18 +65,20 @@ const json::Node RequestHandler::PrintStop(const json::Dict& request_map) const 
     return json::Node{ result };
 }
 
-const json::Node RequestHandler::PrintMap(const json::Dict& request_map) const {
+const json::Node MapPrinter::PrintMap(const json::Dict& request_map) const {
     json::Dict result;
     result["request_id"] = request_map.at("id").AsInt();
     std::ostringstream strm;
-    svg::Document map = RenderMap();
+    
+    MpRenderer mp{catalog_,renderer_};
+    svg::Document map = mp.RenderMap();
     map.Render(strm);
     result["map"] = strm.str();
 
     return json::Node{ result };
 }
 
-std::optional<transport::Route> RequestHandler::GetBusStat(const std::string_view bus_number) const {
+std::optional<transport::Route> BusStatistics::GetBusStat(const std::string_view bus_number) const {
     transport::Route bus_stat{};
     const transport::Bus* bus = catalog_.FindRoute(bus_number);
 
@@ -92,10 +111,10 @@ std::optional<transport::Route> RequestHandler::GetBusStat(const std::string_vie
     return bus_stat;
 }
 
-const std::set<std::string> RequestHandler::GetBusesByStop(std::string_view stop_name) const {
+const std::set<std::string> BusStatistics::GetBusesByStop(std::string_view stop_name) const {
     return catalog_.FindStop(stop_name)->buses_by_stop;
 }
 
-svg::Document RequestHandler::RenderMap() const {
-    return renderer_.GetSVG(catalog_.GetSortedAllBuses());
+svg::Document MpRenderer::RenderMap() const {
+    return renderer_.RendererSVG(catalog_.GetSortedAllBuses());
 }
