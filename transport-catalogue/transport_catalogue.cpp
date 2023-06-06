@@ -56,4 +56,41 @@ namespace transport {
         return std::map<std::string_view, const Bus*>(busname_to_bus_.begin(), busname_to_bus_.end());
     }
 
+    std::optional<transport::Route> Catalog::GetBusStat(const std::string_view bus_number) const {
+        transport::Route bus_stat{};
+        const transport::Bus* bus = FindRoute(bus_number);
+
+        if (!bus) throw std::invalid_argument("Can't find bus");
+        if (bus->circular_route) bus_stat.stops_count = bus->stops.size();
+        else bus_stat.stops_count = bus->stops.size() * 2 - 1;
+
+        int route_length = 0;
+        double geographic_length = 0.0;
+
+        for (size_t i = 0; i < bus->stops.size() - 1; ++i) {
+            auto from_there = bus->stops[i];
+            auto there = bus->stops[i + 1];
+            if (bus->circular_route) {
+                route_length += GetDistance(from_there, there);
+                geographic_length += geo::ComputeDistance(from_there->coordinates,
+                    there->coordinates);
+            }
+            else {
+                route_length += GetDistance(from_there, there) + GetDistance(there, from_there);
+                geographic_length += geo::ComputeDistance(from_there->coordinates,
+                    there->coordinates) * 2;
+            }
+        }
+
+        bus_stat.unique_stops_count = UniqueStopsCount(bus_number);
+        bus_stat.route_length = route_length;
+        bus_stat.curvature = route_length / geographic_length;
+
+        return bus_stat;
+    }
+
+    const std::set<std::string> Catalog::GetBusesByStop(std::string_view stop_name) const {
+        return FindStop(stop_name)->buses_by_stop;
+    }
+
 }

@@ -1,17 +1,17 @@
 #include "json_reader.h"
 
 const json::Node& JsonReader::GetBaseRequests() const {
-    if (!input_.GetRoot().AsMap().count("base_requests")) return bone_;
+    if (!input_.GetRoot().AsMap().count("base_requests")) return dummy_;
     return input_.GetRoot().AsMap().at("base_requests");
 }
 
 const json::Node& JsonReader::GetStatRequests() const {
-    if (!input_.GetRoot().AsMap().count("stat_requests")) return bone_;
+    if (!input_.GetRoot().AsMap().count("stat_requests")) return dummy_;
     return input_.GetRoot().AsMap().at("stat_requests");
 }
 
 const json::Node& JsonReader::GetRenderSettings() const {
-    if (!input_.GetRoot().AsMap().count("render_settings")) return bone_;
+    if (!input_.GetRoot().AsMap().count("render_settings")) return dummy_;
     return input_.GetRoot().AsMap().at("render_settings");
 }
 
@@ -122,3 +122,42 @@ renderer::MapRenderer JsonReader::FillRenderSettings(const json::Dict& request_m
 
     return render_settings;
 }
+
+const json::Node Print::RendererPrintRoute(const transport::Catalog& catalog, const json::Dict& request_map) const {
+    json::Dict result;
+    const std::string& route_number = request_map.at("name").AsString();
+    result["request_id"] = request_map.at("id").AsInt();
+    if (!catalog.FindRoute(route_number)) {
+        result["error_message"] = json::Node{ static_cast<std::string>("not found") };
+    }
+    else {
+
+        result["curvature"] = catalog.GetBusStat(route_number)->curvature;
+        result["route_length"] = catalog.GetBusStat(route_number)->route_length;
+        result["stop_count"] = static_cast<int>(catalog.GetBusStat(route_number)->stops_count);
+        result["unique_stop_count"] = static_cast<int>(catalog.GetBusStat(route_number)->unique_stops_count);
+    }
+
+    return json::Node{ result };
+}
+
+const json::Node Print::RendererPrintStop(const transport::Catalog& catalog, const json::Dict& request_map) const {
+    json::Dict result;
+    const std::string& stop_name = request_map.at("name").AsString();
+    result["request_id"] = request_map.at("id").AsInt();
+
+    if (!catalog.FindStop(stop_name)) {
+        result["error_message"] = json::Node{ static_cast<std::string>("not found") };
+    }
+    else {
+
+        json::Array buses;
+        for (auto& bus : catalog.GetBusesByStop(stop_name)) {
+            buses.push_back(bus);
+        }
+        result["buses"] = buses;
+    }
+
+    return json::Node{ result };
+}
+

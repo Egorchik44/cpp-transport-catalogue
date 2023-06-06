@@ -176,4 +176,15 @@ namespace renderer {
         return result;
     }
 
+    
+    const json::Node MapRenderer::RendererPrintMap(const transport::Catalog& catalog, const json::Dict& request_map) const {
+        json::Dict result;
+        result["request_id"] = request_map.at("id").AsInt();
+        std::ostringstream strm;
+        svg::Document map = RendererSVG(catalog.GetSortedAllBuses());;
+        map.Render(strm);
+        result["map"] = strm.str();
+
+        return json::Node{ result };
+    }
 }

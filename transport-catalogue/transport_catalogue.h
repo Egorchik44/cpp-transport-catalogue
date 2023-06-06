@@ -8,7 +8,8 @@
 #include <vector>
 #include <string>
 #include <iostream>
-#include <functional>
+#include <optional>
+#include <stdexcept>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -53,6 +54,8 @@ namespace transport {
         void SetDistance(const Stop* from_there, const Stop* there, int distance);
         int GetDistance(const Stop* from_there, const Stop* there) const;
         const std::map<std::string_view, const Bus*> GetSortedAllBuses() const;
+        std::optional<transport::Route> GetBusStat(const std::string_view bus_number) const;
+        const std::set<std::string> GetBusesByStop(std::string_view stop_name) const;
 
     private:
         std::deque<Bus> all_buses_;

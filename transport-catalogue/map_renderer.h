@@ -5,6 +5,7 @@
 #include "json.h"
 #include "transport_catalogue.h"
 
+#include <sstream>
 #include <algorithm>
 
 namespace renderer {
@@ -81,6 +82,10 @@ struct RenderSettings {
     std::vector<svg::Color> color_palette {};
 };
 
+
+
+
+
 class MapRenderer {
 public:
     MapRenderer(const RenderSettings& render_settings)
@@ -89,6 +94,8 @@ public:
     
     svg::Document RendererSVG(const std::map<std::string_view, const transport::Bus*>& buses) const;
     
+    const json::Node RendererPrintMap(const transport::Catalog& catalog, const json::Dict& request_map) const;
+
 private:
     const RenderSettings render_settings_;
 
