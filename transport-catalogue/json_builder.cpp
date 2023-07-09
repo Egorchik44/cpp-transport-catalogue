@@ -120,6 +120,8 @@ Node Builder::GetNode(Node::Value value) {
     return {};
 }
 
+
+
 Builder::DictItemContext::DictItemContext(Builder& builder)
     : builder_(builder)
 {}
@@ -132,40 +134,34 @@ Builder& Builder::DictItemContext::EndDict() {
     return builder_.EndDict();
 }
 
-Builder::ArrayItemContext::ArrayItemContext(Builder& builder)
-    : builder_(builder)
-{}
+
 
 Builder::ArrayItemContext Builder::ArrayItemContext::Value(Node::Value value) {
     return ArrayItemContext(builder_.Value(value));
 }
 
-Builder::DictItemContext Builder::ArrayItemContext::StartDict() {
-    return builder_.StartDict();
+Builder::ArrayItemContext BuilderContext::StartArray()
+{
+    return builder_.StartArray();
 }
 
-Builder::ArrayItemContext Builder::ArrayItemContext::StartArray() {
-    return builder_.StartArray();
+
+
+Builder::DictItemContext BuilderContext::StartDict() {
+    return builder_.StartDict();
 }
 
 Builder& Builder::ArrayItemContext::EndArray() {
     return builder_.EndArray();
 }
 
-Builder::DictKeyContext::DictKeyContext(Builder& builder)
-    : builder_(builder)
-{}
+
 
 Builder::DictItemContext Builder::DictKeyContext::Value(Node::Value value) {
     return DictItemContext(builder_.Value(value));
 }
 
-Builder::ArrayItemContext Builder::DictKeyContext::StartArray() {
-    return builder_.StartArray();
-}
 
-Builder::DictItemContext Builder::DictKeyContext::StartDict() {
-    return builder_.StartDict();
-}
+
 
 } // namespace json

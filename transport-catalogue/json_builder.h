@@ -8,6 +8,7 @@ namespace json {
 
 class Builder {
 public:
+    //class BuilderContext;
     class DictItemContext;
     class DictKeyContext;
     class ArrayItemContext;
@@ -39,29 +40,36 @@ private:
     Builder& builder_;
 };
 
-class Builder::ArrayItemContext {
+class BuilderContext {
 public:
-    ArrayItemContext(Builder& builder);
+   explicit BuilderContext(Builder& builder) : builder_(builder) {}
+
+    
+
+protected:
+    Builder& builder_;
+
+    Builder::ArrayItemContext StartArray();
+    Builder::DictItemContext StartDict();
+};
+
+class Builder::ArrayItemContext : public BuilderContext {
+public:
+    ArrayItemContext(Builder& builder) : BuilderContext(builder) {}
 
     ArrayItemContext Value(Node::Value value);
-    DictItemContext StartDict();
     Builder& EndArray();
-    ArrayItemContext StartArray();
 
-private:
-    Builder& builder_;
+
 };
 
-class Builder::DictKeyContext {
+class Builder::DictKeyContext : public BuilderContext {
 public:
-    DictKeyContext(Builder& builder);
+    DictKeyContext(Builder& builder) : BuilderContext(builder) {}
 
     DictItemContext Value(Node::Value value);
-    ArrayItemContext StartArray();
-    DictItemContext StartDict();
 
-private:
-    Builder& builder_;
 };
 
-} // namespace json
+
+} 
