@@ -1,24 +1,25 @@
 #include "json_reader.h"
+#include "json_builder.h"
 
 const json::Node& JsonReader::GetBaseRequests() const {
-    if (!input_.GetRoot().AsMap().count("base_requests")) return dummy_;
-    return input_.GetRoot().AsMap().at("base_requests");
+    if (!input_.GetRoot().AsDict().count("base_requests")) return dummy_;
+    return input_.GetRoot().AsDict().at("base_requests");
 }
 
 const json::Node& JsonReader::GetStatRequests() const {
-    if (!input_.GetRoot().AsMap().count("stat_requests")) return dummy_;
-    return input_.GetRoot().AsMap().at("stat_requests");
+    if (!input_.GetRoot().AsDict().count("stat_requests")) return dummy_;
+    return input_.GetRoot().AsDict().at("stat_requests");
 }
 
 const json::Node& JsonReader::GetRenderSettings() const {
-    if (!input_.GetRoot().AsMap().count("render_settings")) return dummy_;
-    return input_.GetRoot().AsMap().at("render_settings");
+    if (!input_.GetRoot().AsDict().count("render_settings")) return dummy_;
+    return input_.GetRoot().AsDict().at("render_settings");
 }
 
 void JsonReader::FillCatalogue(transport::Catalog& catalog) {
     const json::Array& arr = GetBaseRequests().AsArray();
     for (auto& request_stops : arr) {
-        const auto& request_stops_map = request_stops.AsMap();
+        const auto& request_stops_map = request_stops.AsDict();
         const auto& type = request_stops_map.at("type").AsString();
         if (type == "Stop") {
             auto [stop_name, coordinates, stop_distances] = FillStop(request_stops_map);
@@ -28,7 +29,7 @@ void JsonReader::FillCatalogue(transport::Catalog& catalog) {
     FillStopDistances(catalog);
 
     for (auto& request_bus : arr) {
-        const auto& request_bus_map = request_bus.AsMap();
+        const auto& request_bus_map = request_bus.AsDict();
         const auto& type = request_bus_map.at("type").AsString();
         if (type == "Bus") {
             auto [bus_number, stops, circular_route] = FillRoute(request_bus_map, catalog);
@@ -41,7 +42,7 @@ std::tuple<std::string_view, geo::Coordinates, std::map<std::string_view, int>> 
     std::string_view stop_name = request_map.at("name").AsString();
     geo::Coordinates coordinates = { request_map.at("latitude").AsDouble(), request_map.at("longitude").AsDouble() };
     std::map<std::string_view, int> stop_distances;
-    auto& distances = request_map.at("road_distances").AsMap();
+    auto& distances = request_map.at("road_distances").AsDict();
     for (auto& [stop_name, dist] : distances) {
         stop_distances.emplace(stop_name, dist.AsInt());
     }
@@ -51,7 +52,7 @@ std::tuple<std::string_view, geo::Coordinates, std::map<std::string_view, int>> 
 void JsonReader::FillStopDistances(transport::Catalog& catalog) const {
     const json::Array& arr = GetBaseRequests().AsArray();
     for (auto& request_stops : arr) {
-        const auto& request_stops_map = request_stops.AsMap();
+        const auto& request_stops_map = request_stops.AsDict();
         const auto& type = request_stops_map.at("type").AsString();
         if (type == "Stop") {
             auto [stop_name, coordinates, stop_distances] = FillStop(request_stops_map);
@@ -160,4 +161,3 @@ const json::Node Print::RendererPrintStop(const transport::Catalog& catalog, con
 
     return json::Node{ result };
 }
-
