@@ -54,6 +54,7 @@ namespace transport {
         void SetDistance(const Stop* from_there, const Stop* there, int distance);
         int GetDistance(const Stop* from_there, const Stop* there) const;
         const std::map<std::string_view, const Bus*> GetSortedAllBuses() const;
+        const std::map<std::string_view, const Stop*> GetSortedAllStops() const;
         std::optional<transport::Route> GetBusStat(const std::string_view bus_number) const;
         const std::set<std::string> GetBusesByStop(std::string_view stop_name) const;
 

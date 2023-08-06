@@ -1,34 +1,60 @@
 #include "request_handler.h"
 
-void RequestHandler::ProcessRequests(const json::Node& stat_requests) const {
-    json::Array result;
-    for (auto& request : stat_requests.AsArray()) {
-        const auto& request_map = request.AsDict();
-        const auto& type = request_map.at("type").AsString();
-        Print printer{};
-        if (type == "Bus")
-        {
-            result.push_back(printer.RendererPrintRoute(catalog_, request_map).AsDict());
-        }
-        
-        if (type == "Stop")
-        {
-            result.push_back(printer.RendererPrintStop(catalog_, request_map).AsDict());
-        }
-        
-        if (type == "Map") 
-        { 
-            result.push_back(renderer_.RendererPrintMap(catalog_, request_map).AsDict());
-        }
-    }
-
-    json::Print(json::Document{ result }, std::cout);
-}
-
-
-svg::Document MpRenderer::RenderMap() const {
+svg::Document RequestHandler::RenderMap() const {
     return renderer_.RendererSVG(catalog_.GetSortedAllBuses());
 }
 
+const std::optional<graph::Router<double>::RouteInfo> RequestHandler::GetOptimalRoute(const std::string_view stop_from, const std::string_view stop_to) const {
+    return router_.FindRoute(stop_from, stop_to);
+}
 
-    
+const graph::DirectedWeightedGraph<double>& RequestHandler::GetRouterGraph() const {
+    return router_.GetGraph();
+}
+
+std::optional<transport::Route> RequestHandler::GetBusStat(const std::string_view bus_number) const {
+    transport::Route bus_stat{};
+    const transport::Bus* bus = catalog_.FindRoute(bus_number);
+
+    if (!bus) throw std::invalid_argument("bus not found");
+    if (bus->circular_route) bus_stat.stops_count = bus->stops.size();
+    else bus_stat.stops_count = bus->stops.size() * 2 - 1;
+
+    int route_length = 0;
+    double geographic_length = 0.0;
+
+    for (size_t i = 0; i < bus->stops.size() - 1; ++i) {
+        auto from = bus->stops[i];
+        auto to = bus->stops[i + 1];
+        if (bus->circular_route) {
+            route_length += catalog_.GetDistance(from, to);
+            geographic_length += geo::ComputeDistance(from->coordinates,
+                to->coordinates);
+        }
+        else {
+            route_length += catalog_.GetDistance(from, to) + catalog_.GetDistance(to, from);
+            geographic_length += geo::ComputeDistance(from->coordinates,
+                to->coordinates) * 2;
+        }
+    }
+
+    bus_stat.unique_stops_count = catalog_.UniqueStopsCount(bus_number);
+    bus_stat.route_length = route_length;
+    bus_stat.curvature = route_length / geographic_length;
+
+    return bus_stat;
+}
+
+const std::set<std::string> RequestHandler::GetBusesByStop(std::string_view stop_name) const {
+    return catalog_.FindStop(stop_name)->buses_by_stop;
+}
+
+bool RequestHandler::IsBusNumber(const std::string_view bus_number) const {
+    return catalog_.FindRoute(bus_number);
+}
+
+bool RequestHandler::IsStopName(const std::string_view stop_name) const {
+    return catalog_.FindStop(stop_name);
+}
+
+

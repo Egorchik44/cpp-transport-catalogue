@@ -56,6 +56,10 @@ namespace transport {
         return std::map<std::string_view, const Bus*>(busname_to_bus_.begin(), busname_to_bus_.end());
     }
 
+    const std::map<std::string_view, const Stop*> Catalog::GetSortedAllStops() const {
+        return std::map<std::string_view, const Stop*>(stopname_to_stop_.begin(), stopname_to_stop_.end());
+    }
+
     std::optional<transport::Route> Catalog::GetBusStat(const std::string_view bus_number) const {
         transport::Route bus_stat{};
         const transport::Bus* bus = FindRoute(bus_number);

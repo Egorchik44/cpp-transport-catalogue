@@ -16,6 +16,41 @@ const json::Node& JsonReader::GetRenderSettings() const {
     return input_.GetRoot().AsDict().at("render_settings");
 }
 
+const json::Node& JsonReader::GetRoutingSettings() const {
+    if (!input_.GetRoot().AsDict().count("routing_settings")) return dummy_;
+    return input_.GetRoot().AsDict().at("routing_settings");
+}
+
+
+void JsonReader::ProcessRequests(const json::Node& stat_requests, RequestHandler& rh) const {
+    json::Array result;
+    for (auto& request : stat_requests.AsArray()) {
+        const auto& request_map = request.AsDict();
+        const auto& type = request_map.at("type").AsString();
+        if (type == "Bus")
+        {
+            result.push_back(RendererPrintRoute(request_map, rh).AsDict());
+        }
+
+        if (type == "Stop")
+        {
+            result.push_back(RendererPrintStop(request_map, rh).AsDict());
+        }
+
+        if (type == "Map")
+        {
+            result.push_back(RendererPrintMap(request_map, rh).AsDict());
+        }
+
+        if (type == "Route")
+        {
+            result.push_back(RendererPrintRouting(request_map, rh).AsDict());
+        }
+    }
+
+    json::Print(json::Document{ result }, std::cout);
+}
+
 void JsonReader::FillCatalogue(transport::Catalog& catalog) {
     const json::Array& arr = GetBaseRequests().AsArray();
     for (auto& request_stops : arr) {
@@ -76,7 +111,8 @@ std::tuple<std::string_view, std::vector<const transport::Stop*>, bool> JsonRead
     return std::make_tuple(bus_number, stops, circular_route);
 }
 
-renderer::MapRenderer JsonReader::FillRenderSettings(const json::Dict& request_map) const {
+renderer::MapRenderer JsonReader::FillRenderSettings(const json::Node& settings) const {
+    json::Dict request_map = settings.AsDict();
     renderer::RenderSettings render_settings;
     render_settings.width = request_map.at("width").AsDouble();
     render_settings.height = request_map.at("height").AsDouble();
@@ -124,40 +160,139 @@ renderer::MapRenderer JsonReader::FillRenderSettings(const json::Dict& request_m
     return render_settings;
 }
 
-const json::Node Print::RendererPrintRoute(const transport::Catalog& catalog, const json::Dict& request_map) const {
-    json::Dict result;
-    const std::string& route_number = request_map.at("name").AsString();
-    result["request_id"] = request_map.at("id").AsInt();
-    if (!catalog.FindRoute(route_number)) {
-        result["error_message"] = json::Node{ static_cast<std::string>("not found") };
-    }
-    else {
-
-        result["curvature"] = catalog.GetBusStat(route_number)->curvature;
-        result["route_length"] = catalog.GetBusStat(route_number)->route_length;
-        result["stop_count"] = static_cast<int>(catalog.GetBusStat(route_number)->stops_count);
-        result["unique_stop_count"] = static_cast<int>(catalog.GetBusStat(route_number)->unique_stops_count);
-    }
-
-    return json::Node{ result };
+transport::Router JsonReader::FillRoutingSettings(const json::Node& settings) const {
+    transport::Router routing_settings;
+    return transport::Router{ settings.AsDict().at("bus_wait_time").AsInt(), settings.AsDict().at("bus_velocity").AsDouble() };
 }
 
-const json::Node Print::RendererPrintStop(const transport::Catalog& catalog, const json::Dict& request_map) const {
-    json::Dict result;
-    const std::string& stop_name = request_map.at("name").AsString();
-    result["request_id"] = request_map.at("id").AsInt();
+const json::Node JsonReader::RendererPrintRoute(const json::Dict& request_map, RequestHandler& rh) const {
+    json::Node result;
+    const std::string& route_number = request_map.at("name").AsString();
+    const int id = request_map.at("id").AsInt();
 
-    if (!catalog.FindStop(stop_name)) {
-        result["error_message"] = json::Node{ static_cast<std::string>("not found") };
+    if (!rh.IsBusNumber(route_number)) {
+        result = json::Builder{}
+            .StartDict()
+            .Key("request_id").Value(id)
+            .Key("error_message").Value("not found")
+            .EndDict()
+            .Build();
     }
     else {
+        const auto& route_info = rh.GetBusStat(route_number);
+        result = json::Builder{}
+            .StartDict()
+            .Key("request_id").Value(id)
+            .Key("curvature").Value(route_info->curvature)
+            .Key("route_length").Value(route_info->route_length)
+            .Key("stop_count").Value(static_cast<int>(route_info->stops_count))
+            .Key("unique_stop_count").Value(static_cast<int>(route_info->unique_stops_count))
+            .EndDict()
+            .Build();
+    }
+    return result;
+}
 
+const json::Node JsonReader::RendererPrintStop(const json::Dict& request_map, RequestHandler& rh) const {
+    json::Node result;
+    const std::string& stop_name = request_map.at("name").AsString();
+    const int id = request_map.at("id").AsInt();
+
+    if (!rh.IsStopName(stop_name)) {
+        result = json::Builder{}
+            .StartDict()
+            .Key("request_id").Value(id)
+            .Key("error_message").Value("not found")
+            .EndDict()
+            .Build();
+    }
+    else {
         json::Array buses;
-        for (auto& bus : catalog.GetBusesByStop(stop_name)) {
+        for (const auto& bus : rh.GetBusesByStop(stop_name)) {
             buses.push_back(bus);
         }
-        result["buses"] = buses;
+        result = json::Builder{}
+            .StartDict()
+            .Key("request_id").Value(id)
+            .Key("buses").Value(buses)
+            .EndDict()
+            .Build();
+    }
+    return result;
+}
+
+const json::Node JsonReader::RendererPrintMap(const json::Dict& request_map, RequestHandler& rh) const {
+    json::Node result;
+    const int id = request_map.at("id").AsInt();
+    std::ostringstream strm;
+    svg::Document map = rh.RenderMap();
+    map.Render(strm);
+
+    result = json::Builder{}
+        .StartDict()
+        .Key("request_id").Value(id)
+        .Key("map").Value(strm.str())
+        .EndDict()
+        .Build();
+
+    return result;
+}
+
+const json::Node JsonReader::RendererPrintRouting(const json::Dict& request_map, RequestHandler& rh) const {
+    json::Node result;
+    const int id = request_map.at("id").AsInt();
+    const std::string_view stop_from = request_map.at("from").AsString();
+    const std::string_view stop_to = request_map.at("to").AsString();
+    const auto& routing = rh.GetOptimalRoute(stop_from, stop_to);
+
+    if (!routing) {
+        result = json::Builder{}
+            .StartDict()
+            .Key("request_id").Value(id)
+            .Key("error_message").Value("not found")
+            .EndDict()
+            .Build();
+    }
+    else {
+        json::Array items;
+        double total_time = 0.0;
+        items.reserve(routing.value().edges.size());
+        for (auto& edge_id : routing.value().edges) {
+            const graph::Edge<double> edge = rh.GetRouterGraph().GetEdge(edge_id);
+            if (edge.quality == 0) {
+                items.emplace_back(json::Node(json::Builder{}
+                    .StartDict()
+                    .Key("stop_name").Value(edge.name)
+                    .Key("time").Value(edge.weight)
+                    .Key("type").Value("Wait")
+                    .EndDict()
+                    .Build()));
+
+                total_time += edge.weight;
+            }
+            else {
+                items.emplace_back(json::Node(json::Builder{}
+                    .StartDict()
+                    .Key("bus").Value(edge.name)
+                    .Key("span_count").Value(static_cast<int>(edge.quality))
+                    .Key("time").Value(edge.weight)
+                    .Key("type").Value("Bus")
+                    .EndDict()
+                    .Build()));
+
+                total_time += edge.weight;
+            }
+        }
+
+        result = json::Builder{}
+            .StartDict()
+            .Key("request_id").Value(id)
+            .Key("total_time").Value(total_time)
+            .Key("items").Value(items)
+            .EndDict()
+            .Build();
     }
 
-    return json::Node{ result };
+    return result;
 }
+

@@ -176,7 +176,7 @@ namespace renderer {
         return result;
     }
 
-    
+
     const json::Node MapRenderer::RendererPrintMap(const transport::Catalog& catalog, const json::Dict& request_map) const {
         json::Dict result;
         result["request_id"] = request_map.at("id").AsInt();

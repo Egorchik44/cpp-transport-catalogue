@@ -4,13 +4,15 @@
 int main() {
     transport::Catalog catalog;
     JsonReader json_doc(std::cin);
-    
+
     json_doc.FillCatalogue(catalog);
-    
+
     const auto& stat_requests = json_doc.GetStatRequests();
-    const auto& render_settings = json_doc.GetRenderSettings().AsDict();
+    const auto& render_settings = json_doc.GetRenderSettings();
     const auto& renderer = json_doc.FillRenderSettings(render_settings);
-    
-    RequestHandler rh(catalog, renderer);
-    rh.ProcessRequests(stat_requests);
+    const auto& routing_settings = json_doc.FillRoutingSettings(json_doc.GetRoutingSettings());
+    const transport::Router router = { routing_settings, catalog };
+
+    RequestHandler rh(catalog, renderer, router);
+    json_doc.ProcessRequests(stat_requests, rh);
 }
