@@ -5,6 +5,8 @@
 
 #include <memory>
 
+const double DISTANCE_RATIO = 100.0 / 6.0;
+
 namespace transport {
 
 	class Router {
@@ -21,14 +23,17 @@ namespace transport {
 			BuildGraph(catalog);
 		}
 
-		const graph::DirectedWeightedGraph<double>& BuildGraph(const Catalog& catalog);
-		const std::optional<graph::Router<double>::RouteInfo> FindRoute(const std::string_view stop_from, const std::string_view stop_to) const;
 		const graph::DirectedWeightedGraph<double>& GetGraph() const;
+		const std::optional<graph::Router<double>::RouteInfo> FindRoute(const std::string_view stop_from, const std::string_view stop_to) const;
 
 	private:
+
 		int bus_wait_time_ = 0;
 		double bus_velocity_ = 0.0;
 
+		void BuildGraph(const Catalog& catalog);
+		double calculateTimeToNextStop(int dist_sum);
+		
 		graph::DirectedWeightedGraph<double> graph_;
 		std::map<std::string, graph::VertexId> stop_ids_;
 		std::unique_ptr<graph::Router<double>> router_;

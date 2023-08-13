@@ -2,13 +2,11 @@
 
 namespace transport {
 
-    const graph::DirectedWeightedGraph<double>& Router::BuildGraph(const Catalog& catalog) {
+    void Router::BuildGraph(const Catalog& catalog) {
         const auto& all_stops = catalog.GetSortedAllStops();
-        const auto& all_buses = catalog.GetSortedAllBuses();
         graph::DirectedWeightedGraph<double> stops_graph(all_stops.size() * 2);
         std::map<std::string, graph::VertexId> stop_ids;
         graph::VertexId vertex_id = 0;
-
         for (const auto& [stop_name, stop_info] : all_stops) {
             stop_ids[stop_info->name] = vertex_id;
             stops_graph.AddEdge({
@@ -21,7 +19,7 @@ namespace transport {
             ++vertex_id;
         }
         stop_ids_ = std::move(stop_ids);
-
+        const auto& all_buses = catalog.GetSortedAllBuses();
         for_each(
             all_buses.begin(),
             all_buses.end(),
@@ -43,14 +41,14 @@ namespace transport {
                                               j - i,
                                               stop_ids_.at(stop_from->name) + 1,
                                               stop_ids_.at(stop_to->name),
-                                              static_cast<double>(dist_sum) / (bus_velocity_ * (100.0 / 6.0)) });
+                                              calculateTimeToNextStop(dist_sum) });
 
                         if (!bus_info->circular_route) {
                             stops_graph.AddEdge({ bus_info->number,
                                                   j - i,
                                                   stop_ids_.at(stop_to->name) + 1,
                                                   stop_ids_.at(stop_from->name),
-                                                  static_cast<double>(dist_sum_inverse) / (bus_velocity_ * (100.0 / 6.0)) });
+                                                  calculateTimeToNextStop(dist_sum_inverse) });
                         }
                     }
                 }
@@ -59,7 +57,6 @@ namespace transport {
         graph_ = std::move(stops_graph);
         router_ = std::make_unique<graph::Router<double>>(graph_);
 
-        return graph_;
     }
 
     const std::optional<graph::Router<double>::RouteInfo> Router::FindRoute(const std::string_view stop_from, const std::string_view stop_to) const {
@@ -70,4 +67,9 @@ namespace transport {
         return graph_;
     }
 
+    double Router::calculateTimeToNextStop(int dist_sum) {
+        return static_cast<double>(dist_sum) / (bus_velocity_ * DISTANCE_RATIO);
+    }
+
 }
+
